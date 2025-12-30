@@ -1,77 +1,156 @@
-import { useState } from "react";
+import { useReducer } from "react";
+import toast from "react-hot-toast";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { useNavigate } from "react-router-dom";
+import axiosInstance from "../utils/axiosinstance";
+
+// Initial state
+const initialState = {
+  email: "",
+  password: "",
+  showPassword: false,
+};
+
+// Reducer
+function reducer(state, action) {
+  switch (action.type) {
+    case "SET_FIELD":
+      return { ...state, [action.field]: action.value };
+    case "TOGGLE_SHOW_PASSWORD":
+      return { ...state, showPassword: !state.showPassword };
+    case "RESET":
+      return initialState;
+    default:
+      return state;
+  }
+}
+
+// Reusable Input Component
+function InputField({
+  type = "text",
+  placeholder,
+  value,
+  onChange,
+  isPassword = false,
+  showValue,
+  toggleShow,
+  label,
+}) {
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault(); // Prevent form submission on Enter
+    }
+  };
+  return (
+    <div>
+      {label && (
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {label}
+        </label>
+      )}
+      <div className="relative">
+        <input
+          type={isPassword ? (showValue ? "text" : "password") : type}
+          placeholder={placeholder}
+          value={value}
+          onChange={onChange}
+          onKeyDown={handleKeyDown}
+          required
+          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
+        />
+        {isPassword && (
+          <span
+            className="absolute right-3 top-2.5 cursor-pointer text-gray-500"
+            onClick={toggleShow}
+          >
+            {showValue ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function LoginPage() {
-  const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(false);
+  const [state, dispatch] = useReducer(reducer, initialState);
   const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    // Example login logic
+    toast.success("hello");
+    console.log("Login Form Submitted:", state);
+
+    const data = {
+      email: "test2@gmail.com",
+      name: "yuvrajM",
+      password: "yuvraj123",
+      passwordConfirm: "yuvraj123",
+    };
+    // const data = { email: state?.email, password: state?.password };
+    console.log("data", data);
+
+    try {
+      const response = await axiosInstance.post(`/api/v1/auth/signup`, data);
+      // const response = await axios.post(`${PORT}/api/v1/auth/login`, data, {
+      //   withCredentials: true,
+      // });
+      console.log(response);
+      const { token } = response.data;
+
+      if (token) {
+        toast.success("User logged in");
+        sessionStorage.setItem("token", token);
+        navigate("/");
+      }
+    } catch (e) {
+      toast.error("An error occurred. Please try again later.");
+      console.error(e);
+    } finally {
+      // setloading(false);
+      // setisSubmitting(false);
+    }
+    // dispatch({ type: "RESET" });
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white p-8 rounded-2xl shadow-md w-full max-w-md">
-        {/* Heading */}
         <h2 className="text-center text-xl font-semibold mb-6">
           Hi, Welcome Back! <span className="text-yellow-500">👋</span>
         </h2>
 
-        {/* Form */}
-        <form className="space-y-4">
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              placeholder="example@gmail.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <InputField
+            label="Email"
+            type="email"
+            placeholder="example@gmail.com"
+            value={state.email}
+            onChange={(e) =>
+              dispatch({
+                type: "SET_FIELD",
+                field: "email",
+                value: e.target.value,
+              })
+            }
+          />
 
-          {/* Password */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                placeholder="Enter Your Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
-              />
-              <span
-                className="absolute right-3 top-2.5 cursor-pointer text-gray-500"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
-              </span>
-            </div>
-          </div>
+          <InputField
+            label="Password"
+            isPassword
+            placeholder="Enter Your Password"
+            value={state.password}
+            showValue={state.showPassword}
+            toggleShow={() => dispatch({ type: "TOGGLE_SHOW_PASSWORD" })}
+            onChange={(e) =>
+              dispatch({
+                type: "SET_FIELD",
+                field: "password",
+                value: e.target.value,
+              })
+            }
+          />
 
-          {/* Remember & Forgot */}
-          {/* <div className="flex items-center justify-between text-sm">
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-                className="form-checkbox h-4 w-4 text-orange-500"
-              />
-              <span>Remember Me</span>
-            </label>
-            <a href="#" className="text-orange-500 hover:underline">
-              Forgot Password?
-            </a>
-          </div> */}
-
-          {/* Login Button */}
           <button
             type="submit"
             className="w-full bg-orange-400 text-white py-2 rounded-md hover:bg-orange-500 transition"
@@ -80,7 +159,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Sign Up Link */}
         <p className="text-center text-sm mt-4">
           Don't have an account?{" "}
           <button
@@ -91,7 +169,6 @@ export default function LoginPage() {
           </button>
         </p>
 
-        {/* Footer */}
         <p className="text-center text-xs text-gray-400 mt-6">
           © 2025 | Designed and coded with ❤️ by Yuvraj Manchadi
         </p>
