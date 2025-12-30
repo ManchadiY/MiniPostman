@@ -8,11 +8,11 @@ import SignupPage from "./pages/SignupPage";
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<MiniPostman />} />
-      <Route path="/ballu" element={<Home />} />
+      <Route path="/signup" index element={<SignupPage />} />
+      <Route path="/test" element={<MiniPostman />} />
+      <Route path="/" element={<Home />} />
       <Route path="*" element={<PageNotFound />} />
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignupPage />} />
     </Routes>
   );
 }
