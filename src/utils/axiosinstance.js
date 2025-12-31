@@ -1,11 +1,11 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: `http://127.0.0.1:3000`,
+  baseURL:
+    import.meta.env.MODE === "development"
+      ? "http://127.0.0.1:3000"
+      : import.meta.env.VITE_BACKEND_URL,
 });
-// const axiosInstance = axios.create({
-//   baseURL: import.meta.env.VITE_BACKEND_URL,
-// });
 
 // Automatically attach token from localStorage
 axiosInstance.interceptors.request.use(

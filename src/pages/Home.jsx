@@ -1,34 +1,81 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { BsPlus } from "react-icons/bs";
 import { FiUser } from "react-icons/fi";
 import { PiDotsThreeOutlineLight } from "react-icons/pi";
-import { VscListFilter } from "react-icons/vsc";
+import { VscClose, VscListFilter } from "react-icons/vsc";
 import { CgChevronDown } from "react-icons/cg";
 import { IoSaveOutline } from "react-icons/io5";
+import ImportModal from "../components/ImportModal";
+import axiosInstance from "../utils/axiosinstance";
+import toast from "react-hot-toast";
 
 // GET https://jsonplaceholder.typicode.com/posts
 // POST https://jsonplaceholder.typicode.com/posts
 
-const apiData = [
+const savedAPIData = [
   {
+    id: 1,
+    name: "Create Post",
     method: "post",
-    api: "https://dev.workved.com/brandOverview/lg",
+    url: "https://jsonplaceholder.typicode.com/posts",
+    headers: [
+      { key: "Content-Type", value: "application/json", enabled: true },
+      { key: "Authorization", value: "Bearer demo-token-123", enabled: false },
+    ],
+    body: `{
+  "title": "foo",
+  "body": "bar",
+  "userId": 1
+}`,
   },
+
   {
+    id: 2,
+    name: "Get All Posts",
     method: "get",
-    api: "https://dev.workved.com/brandOverview/lg",
+    url: "https://jsonplaceholder.typicode.com/posts",
+    headers: [{ key: "Accept", value: "application/json", enabled: true }],
+    body: "",
   },
+
   {
-    method: "del",
-    api: "https://dev.workved.com/brandOverview/lg",
+    id: 3,
+    name: "Get Single Post",
+    method: "get",
+    url: "https://jsonplaceholder.typicode.com/posts/1",
+    headers: [
+      { key: "Accept", value: "application/json", enabled: true },
+      { key: "Cache-Control", value: "no-cache", enabled: true },
+    ],
+    body: "",
   },
+
   {
+    id: 4,
+    name: "Update Post",
     method: "put",
-    api: "https://dev.workved.com/brandOverview/lg",
+    url: "https://jsonplaceholder.typicode.com/posts/1",
+    headers: [
+      { key: "Content-Type", value: "application/json", enabled: true },
+      { key: "Authorization", value: "Bearer demo-token-456", enabled: true },
+    ],
+    body: `{
+  "id": 1,
+  "title": "updated title",
+  "body": "updated body content",
+  "userId": 1
+}`,
   },
+
   {
-    method: "post",
-    api: "https://dev.workved.com/brandOverview/lg",
+    id: 5,
+    name: "Delete Post",
+    method: "del",
+    url: "https://jsonplaceholder.typicode.com/posts/1",
+    headers: [
+      { key: "Authorization", value: "Bearer demo-token-789", enabled: true },
+    ],
+    body: "",
   },
 ];
 const methodStyles = {
@@ -51,60 +98,12 @@ function Home() {
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState(null);
   const [responseHeaders, setResponseHeaders] = useState(null);
+  const [recentTabs, setRecentTabs] = useState([]);
+  const [activeTabId, setActiveTabId] = useState(null);
+  const [isSaveLoading, setIsSaveLoading] = useState(false);
+
   const responseRef = useRef(null);
-  // const [requests, setRequests] = useState([
-  //   {
-  //     method: "get",
-  //     url: "",
-  //     headers: [
-  //       { key: "Content-Type", value: "application/json", enabled: true },
-  //     ],
-  //     body: `{"name": "Add your name in the body"}`,
-  //     response: null,
-  //     responseHeaders: null,
-  //     loading: false,
-  //   },
-  // ]);
-  // const [activeIndex, setActiveIndex] = useState(0); // default first request is active
-
-  // const handleSend = async (index) => {
-  //   const newRequests = [...requests];
-  //   const req = newRequests[index];
-  //   req.loading = true;
-  //   req.response = null;
-  //   setRequests(newRequests);
-
-  //   try {
-  //     const headerObj = {};
-  //     req.headers.forEach((h) => {
-  //       if (h.enabled && h.key) headerObj[h.key] = h.value;
-  //     });
-
-  //     const res = await fetch(req.url, {
-  //       method: req.method.toUpperCase(),
-  //       headers: headerObj,
-  //       body: req.method.toLowerCase() === "get" ? undefined : req.body,
-  //     });
-
-  //     const text = await res.text();
-  //     let data;
-  //     try {
-  //       data = JSON.parse(text);
-  //       console.log(data);
-  //     } catch {
-  //       data = text;
-  //     }
-
-  //     const hdrs = {};
-  //     res.headers.forEach((v, k) => (hdrs[k] = v));
-
-  //     updateRequest(index, { response: data, responseHeaders: hdrs });
-  //   } catch (err) {
-  //     updateRequest(index, { response: { error: err.message } });
-  //   } finally {
-  //     updateRequest(index, { loading: false });
-  //   }
-  // };
+  const [open, setOpen] = useState(false);
 
   const handleSend = async () => {
     try {
@@ -146,149 +145,164 @@ function Home() {
     }
   };
 
-  // function updateRequest(index, updatedFields) {
-  //   const newRequests = [...requests];
-  //   newRequests[index] = { ...newRequests[index], ...updatedFields };
-  //   console.log(newRequests[index]);
+  const loadSavedAPI = (api) => {
+    setMethod(api.method);
+    setUrl(api.url);
+    setHeaders(api.headers || []);
+    setBody(api.body || "");
+    setResponse(null);
+    setResponseHeaders(null);
+    setActiveTabId(api.id);
 
-  //   setRequests(newRequests);
-  // }
-  // const activeRequest = requests[activeIndex];
+    setRecentTabs((prev) => {
+      const alreadyOpen = prev.some((t) => t.id === api.id);
+      if (alreadyOpen) return prev;
+      return [...prev, api];
+    });
+  };
+
+  async function handleSave(api, header, body, method) {
+    if (!api) {
+      return toast.error("url is not defined ");
+    }
+
+    const reqbody = {
+      description: "",
+      method: method,
+      url: api,
+      headers: header,
+      body: body,
+      name: api,
+    };
+    console.log("reqbody", reqbody);
+
+    try {
+      setIsSaveLoading(true);
+      const data = await axiosInstance.post("/api/v1/Apicall/", reqbody);
+      if (data) {
+        toast?.success("request saved ");
+      }
+    } catch (error) {
+      console.log("error", error);
+    } finally {
+      setIsSaveLoading(false);
+    }
+  }
+
   return (
-    <div className="container h-screen flex flex-col">
-      {/* <div className="flex justify-end">
-        <img src="" alt="" className="h-12 w-12 rounded-full bg-gray-400" />
-      </div> */}
-      <div className="flex flex-1 gap-5">
-        <Sidebar />
-        <div className="flex-1 overflow-hidden">
-          <div className="h-14 py-2 border-b">
-            {/* <ul className="flex gap-1">
-              {apiData.slice(0, 3).map((item, index) => (
-                <li
-                  key={index}
-                  className="flex items-center gap-3 border-r mb-1 pr-2"
-                >
-                  <span
-                    className={`px-3 py-1 text-sm font-semibold uppercase rounded-md ${
-                      methodStyles[item.method]
-                    }`}
+    <>
+      <div className="container mx-auto h-screen flex flex-col overflow-hidden">
+        <div className="flex flex-1 gap-5">
+          <Sidebar onSelectSaved={loadSavedAPI} setOpen={setOpen} />
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <div>
+              <ul className="flex gap-1 overflow-x-auto h-10 border-b ">
+                {recentTabs.map((item) => (
+                  <li
+                    key={item.id}
+                    onClick={() => loadSavedAPI(item)}
+                    className={`flex items-center gap-2 px-3 cursor-pointer relative
+          ${activeTabId === item.id ? "bg-gray-100" : "hover:bg-gray-50"}`}
                   >
-                    {item.method}
-                  </span>
+                    {activeTabId === item.id && (
+                      <span className="absolute bottom-0 left-0 w-full h-0.5 bg-orange-500" />
+                    )}
 
-                  <span className="text-sm break-all">
-                    {item.api.slice(0, 20)}...
-                  </span>
-                </li>
-              ))}
-            </ul> */}
-            {/* <div className="flex items-center gap-2 my-2">
-              {requests.map((req, index) => (
-                <button
-                  key={index}
-                  className={`px-3 py-1 border rounded text-sm ${
-                    activeIndex === index && "bg-gray-400"
-                  } `}
-                  onClick={() => setActiveIndex(index)}
-                >
-                  Request {index + 1}
-                </button>
-              ))}
-
+                    <span
+                      className={`px-2 py-0.5 text-sm font-semibold uppercase rounded ${
+                        methodStyles[item.method]
+                      }`}
+                    >
+                      {item.method}
+                    </span>
+                    <span className="text-sm whitespace-nowrap">
+                      {item.name}
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRecentTabs((prev) =>
+                          prev.filter((t) => t.id !== item.id)
+                        );
+                        if (activeTabId === item.id) {
+                          const remaining = recentTabs.filter(
+                            (t) => t.id !== item.id
+                          );
+                          const last = remaining[remaining.length - 1];
+                          if (last) {
+                            loadSavedAPI(last);
+                          } else {
+                            setActiveTabId(null);
+                            setUrl("");
+                            setHeaders([]);
+                            setBody("");
+                          }
+                        }
+                      }}
+                      className="ml-1 text-gray-400 hover:text-black"
+                    >
+                      <VscClose />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {/* <div className="my-3 flex justify-end"> */}
               <button
-                className="px-3 py-1 border rounded text-sm text-blue-600"
-                onClick={() =>
-                  setRequests([
-                    ...requests,
-                    {
-                      method: "get",
-                      url: "",
-                      headers: [
-                        {
-                          key: "Content-Type",
-                          value: "application/json",
-                          enabled: true,
-                        },
-                      ],
-                      body: `{"name": "Add your name in the body"}`,
-                      response: null,
-                      responseHeaders: null,
-                      loading: false,
-                    },
-                  ])
-                }
+                onClick={() => handleSave(url, headers, body, method)}
+                className="cursor-pointer flex items-center text-[#BDC1CA] text-sm border border-[#BDC1CA] px-3 py-1.5 my-3"
               >
-                + Add Request
+                <IoSaveOutline />
+                {isSaveLoading ? "loading" : "save"}
               </button>
-            </div> */}
-          </div>
-          <div className="my-3 flex justify-between">
-            {/* <p className="text-[#BDC1CA] text-sm">
-              REST API basics:CRUD,test & variable /{" "}
-              <span className="font-medium text-[#171A1F]">Post data</span>
-            </p> */}
-            <button className="cursor-pointer flex items-center text-[#BDC1CA] text-sm border border-[#BDC1CA] px-3 py-1.5">
-              <IoSaveOutline />
-              save
-            </button>
-          </div>
-          {/* <div className="space-y-3">
-            <APIInput
-              selectedMethod={activeRequest.method}
-              setSelectedMethod={(method) =>
-                updateRequest(activeIndex, { method })
-              }
-              url={activeRequest.url}
-              setUrl={(url) => updateRequest(activeIndex, { url })}
-              onSend={() => handleSend(activeIndex)}
-              loading={activeRequest.loading}
-            />
-
-            <HeadersAndBody
-              headers={activeRequest.headers}
-              setHeaders={(headers) => updateRequest(activeIndex, { headers })}
-              body={activeRequest.body}
-              setBody={(body) => updateRequest(activeIndex, { body })}
-            />
-
-            <APIResponse
-              loading={activeRequest.loading}
-              response={activeRequest.response}
-              responseHeaders={activeRequest.responseHeaders}
-            />
-          </div> */}
-          <div className="space-y-3">
-            <APIInput
-              selectedMethod={method}
-              setSelectedMethod={setMethod}
-              url={url}
-              setUrl={setUrl}
-              onSend={handleSend}
-              loading={loading}
-            />
-            <HeadersAndBody
-              headers={headers}
-              setHeaders={setHeaders}
-              body={body}
-              setBody={setBody}
-            />
-            <APIResponse
-              loading={loading}
-              response={response}
-              responseHeaders={responseHeaders}
-            />
+              {/* </div> */}
+            </div>
+            <div className="overflow-hidden flex-1 flex flex-col gap-3">
+              <APIInput
+                selectedMethod={method}
+                setSelectedMethod={setMethod}
+                url={url}
+                setUrl={setUrl}
+                onSend={handleSend}
+                loading={loading}
+              />
+              <HeadersAndBody
+                headers={headers}
+                setHeaders={setHeaders}
+                body={body}
+                setBody={setBody}
+              />
+              <APIResponse
+                loading={loading}
+                response={response}
+                responseHeaders={responseHeaders}
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+      <ImportModal isOpen={open} onClose={() => setOpen((prev) => !prev)} />
+    </>
   );
 }
 
 export default Home;
 
-function Sidebar() {
+function Sidebar({ setOpen, onSelectSaved }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [userSavedReq, setUserSavedReq] = useState([]);
+
+  async function getData() {
+    try {
+      const data = await axiosInstance.get("/api/v1/APiCall/");
+      console.log("data", data);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  useEffect(() => {
+    getData();
+  }, []);
   return (
     <div className="max-w-sm lg:max-w-none lg:w-[320px] w-full">
       <div className="h-10 py-2 w-full flex justify-between border-b">
@@ -300,7 +314,10 @@ function Sidebar() {
           <button className="bg-[#EAEAEA] text-sm px-3 flex items-center py-2 capitalize font-medium hover:bg-gray-300">
             new
           </button>
-          <button className="bg-[#EAEAEA] text-sm px-3 flex items-center py-2 capitalize font-medium hover:bg-gray-300">
+          <button
+            onClick={() => setOpen(true)}
+            className="bg-[#EAEAEA] text-sm px-3 flex items-center py-2 capitalize font-medium hover:bg-gray-300"
+          >
             import
           </button>
         </div>
@@ -314,15 +331,22 @@ function Sidebar() {
       </div>
       <div>
         <div className="flex items-center gap-2 mb-2">
-          <button onClick={() => setIsOpen((prev) => !prev)}>
+          <button
+            onClick={() => setIsOpen((prev) => !prev)}
+            className="cursor-pointer"
+          >
             <CgChevronDown />
           </button>
           REST API basics:CRUD,test & variable
         </div>
         {isOpen && (
           <ul>
-            {apiData.map((item, index) => (
-              <li key={index} className="flex items-center gap-3 border-b mb-1">
+            {savedAPIData.map((item, index) => (
+              <li
+                key={index}
+                onClick={() => onSelectSaved(item)}
+                className="flex items-center gap-3 border-b mb-1 cursor-pointer hover:bg-gray-100"
+              >
                 <span
                   className={`px-3 py-1 text-sm font-semibold uppercase rounded-md ${
                     methodStyles[item.method]
@@ -330,10 +354,7 @@ function Sidebar() {
                 >
                   {item.method}
                 </span>
-
-                <span className="text-sm break-all">
-                  {item.api.slice(0, 40)}...
-                </span>
+                <span className="text-sm break-all">{item.name}</span>
               </li>
             ))}
           </ul>
@@ -388,7 +409,7 @@ function APIInput({
 function HeadersAndBody({ headers, setHeaders, body, setBody }) {
   const [activeTab, setActiveTab] = useState("headers");
   return (
-    <div>
+    <div className="overflow-auto flex-1 max-h-60">
       <ul className="flex gap-7 border-b mb-4">
         {["headers", "body"].map((t) => (
           <li
@@ -479,6 +500,17 @@ function HeadersAndBody({ headers, setHeaders, body, setBody }) {
                   <td className="px-3 py-2 border-b text-gray-400">
                     Description
                   </td>
+                  <td className="px-2 py-2 border-b text-center">
+                    <button
+                      onClick={() =>
+                        setHeaders((prev) => prev.filter((_, idx) => idx !== i))
+                      }
+                      className="text-gray-400 hover:text-red-500"
+                      title="Remove header"
+                    >
+                      <VscClose />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -487,7 +519,7 @@ function HeadersAndBody({ headers, setHeaders, body, setBody }) {
       )}
 
       {activeTab === "body" && (
-        <div className="border border-gray-200 rounded-md overflow-hidden">
+        <div className="border border-gray-200 rounded-md overflow-auto">
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
@@ -505,10 +537,8 @@ function HeadersAndBody({ headers, setHeaders, body, setBody }) {
 function APIResponse({ loading, response, responseHeaders }) {
   const [activeTab, setActiveTab] = useState("body");
 
-  console.log("response", response);
-
   return (
-    <div className="border border-gray-200 rounded-md overflow-hidden text-sm ">
+    <div className="border border-gray-200 rounded-md text-sm flex-1">
       <div className="flex gap-6 px-4 pt-3 border-b">
         {["body", "headers"].map((tab) => (
           <button
@@ -526,20 +556,18 @@ function APIResponse({ loading, response, responseHeaders }) {
       </div>
 
       {activeTab === "body" && (
-        <>
-          <div className="flex font-mono text-sm h-96">
-            {/* <div className="bg-gray-50 text-gray-400 px-3 py-3 text-right select-none">
+        <div className="flex font-mono text-sm h-full overflow-auto">
+          {/* <div className="bg-gray-50 text-gray-400 px-3 py-3 text-right select-none">
               {response &&
                 Array.from({ length: response?.length }).map((_, i) => (
                   <div key={i}>{i + 1}</div>
                 ))}
             </div> */}
 
-            <pre className="flex-1 px-4 py-3 overflow-auto">
-              {response && JSON.stringify(response, null, 2)}
-            </pre>
-          </div>
-        </>
+          <pre className="flex-1 px-4 py-3 overflow-auto h-64 text-wrap">
+            {response && JSON.stringify(response, null, 2)}
+          </pre>
+        </div>
       )}
 
       {activeTab === "headers" && (
