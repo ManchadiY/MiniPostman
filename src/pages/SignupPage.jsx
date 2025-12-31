@@ -1,7 +1,8 @@
-import { useReducer } from "react";
+import { useReducer, useState } from "react";
 import toast from "react-hot-toast";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { useNavigate } from "react-router-dom";
+import axiosInstance from "../utils/axiosinstance";
 
 // Initial state for the reducer
 const initialState = {
@@ -69,14 +70,54 @@ function InputField({
 
 export default function SignupPage() {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [isloading, setisloading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     // Example validation
     if (state.password !== state.confirmPassword) {
       toast.error("Passwords do not match!");
       return;
+    }
+
+    const data = {
+      email: state?.email,
+      name: state?.username,
+      password: state?.password,
+      passwordConfirm: state?.confirmPassword,
+    };
+    // const data = { email: state?.email, password: state?.password };
+    console.log("data", data);
+
+    try {
+      setisloading(true);
+      const response = await axiosInstance.post(`/api/v1/auth/signup`, data);
+      console.log(response);
+      const { msg, jwt, user } = response.data;
+      //       const {
+      //     "msg": "User created",
+      //     "jwt": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjMyZjdkYTg2LWRkZmEtNGMxNS1hOTVkLTM4ZGE3MTIyY2E3MCIsImVtYWlsIjoicm9oaXQ2MDNjd3NAZ21haWwuY29tIiwibmFtZSI6InJvaGl0IiwiaWF0IjoxNzY3MTU2ODg0LCJleHAiOjE3NjcxNjA0ODR9.xrk-UjxmbpwyVOgSKal2_w36VcGzsCm04IHeNsskotw",
+      //     "user": {
+      //         "email": "rohit603cws@gmail.com",
+      //         "name": "rohit"
+      //     }
+      // } = response.data;
+
+      if (jwt) {
+        toast.success("User logged in");
+        sessionStorage.setItem("token", jwt);
+        navigate("/minipostman");
+      }
+    } catch (e) {
+      console.error(e);
+      if (e?.response?.data.msg === "Email already exists") {
+        toast.error("user already exists");
+      } else {
+        toast.error("An error occurred. Please try again later.");
+      }
+    } finally {
+      setisloading(false);
     }
 
     console.log("Form Submitted:", state);
@@ -150,7 +191,7 @@ export default function SignupPage() {
             type="submit"
             className="w-full cursor-pointer bg-orange-400 text-white py-2 rounded-md hover:bg-orange-500 transition"
           >
-            Sign Up
+            {isloading ? "loading..." : "Sign Up"}
           </button>
         </form>
 

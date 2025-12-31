@@ -1,4 +1,4 @@
-import { useReducer } from "react";
+import { useReducer, useState } from "react";
 import toast from "react-hot-toast";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 import { useNavigate } from "react-router-dom";
@@ -74,6 +74,7 @@ function InputField({
 export default function LoginPage() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const navigate = useNavigate();
+  const [isloading, setisloading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -81,36 +82,30 @@ export default function LoginPage() {
     toast.success("hello");
     console.log("Login Form Submitted:", state);
 
-    const data = {
-      email: "test2@gmail.com",
-      name: "yuvrajM",
-      password: "yuvraj123",
-      passwordConfirm: "yuvraj123",
-    };
-    // const data = { email: state?.email, password: state?.password };
-    console.log("data", data);
-
+    const data = { email: state?.email, password: state?.password };
     try {
-      const response = await axiosInstance.post(`/api/v1/auth/signup`, data);
-      // const response = await axios.post(`${PORT}/api/v1/auth/login`, data, {
-      //   withCredentials: true,
-      // });
+      setisloading(true);
+      const response = await axiosInstance.post(`/api/v1/auth/login`, data);
       console.log(response);
-      const { token } = response.data;
+      const { jwt } = response.data;
 
-      if (token) {
+      if (jwt) {
         toast.success("User logged in");
-        sessionStorage.setItem("token", token);
-        navigate("/");
+        sessionStorage.setItem("token", jwt);
+        navigate("/minipostman");
       }
     } catch (e) {
-      toast.error("An error occurred. Please try again later.");
       console.error(e);
+      if (e?.response?.data.msg === "Email already exists") {
+        toast.error("user already exists");
+      } else {
+        toast.error("An error occurred. Please try again later.");
+      }
     } finally {
-      // setloading(false);
-      // setisSubmitting(false);
+      setisloading(false);
     }
-    // dispatch({ type: "RESET" });
+
+    console.log("Form Submitted:", state);
   };
 
   return (
@@ -155,7 +150,7 @@ export default function LoginPage() {
             type="submit"
             className="w-full bg-orange-400 text-white py-2 rounded-md hover:bg-orange-500 transition"
           >
-            Login
+            {isloading ? "loading" : "Login"}
           </button>
         </form>
 
