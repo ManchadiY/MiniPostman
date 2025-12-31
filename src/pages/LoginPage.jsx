@@ -78,10 +78,6 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Example login logic
-    toast.success("hello");
-    console.log("Login Form Submitted:", state);
-
     const data = { email: state?.email, password: state?.password };
     try {
       setisloading(true);
@@ -148,7 +144,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="w-full bg-orange-400 text-white py-2 rounded-md hover:bg-orange-500 transition"
+            className="w-full bg-orange-400 text-white py-2 rounded-md hover:bg-orange-500 transition cursor-pointer"
           >
             {isloading ? "loading" : "Login"}
           </button>

@@ -247,12 +247,12 @@ export default function ImportModal({ isOpen, onClose }) {
 
           {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
         </div>
-        <div className="flex justify-around items-center">
+        {/* <div className="flex justify-around items-center">
           <button onClick={() => parseCurlToJson(text)}>check</button>
           <button onClick={() => parseJsonArrayToRequests(text)}>
             json file
           </button>
-        </div>
+        </div> */}
       </div>
     </div>
   );

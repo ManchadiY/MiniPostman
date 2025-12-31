@@ -1,7 +1,6 @@
 import { Route, Routes, Navigate } from "react-router-dom";
 import PageNotFound from "./pages/PageNotFound";
 import Home from "./pages/Home";
-import MiniPostman from "./pages/MiniPostman";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import { Toaster } from "react-hot-toast";
@@ -14,7 +13,6 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/signup" replace />} />
         <Route path="/signup" index element={<SignupPage />} />
-        <Route path="/test" element={<MiniPostman />} />
         <Route
           path="/minipostman"
           element={
